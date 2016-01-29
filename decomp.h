@@ -1,152 +1,242 @@
 #include <stdio.h>
-#include <math.h>
 #include <stdlib.h>
+#include <math.h>
+#include <omp.h>
 
+#include "affine.h"
+#include "homo_box.h"
 #include "parameters.h"
 #include "aux_fun.h"
 
 
-//intersect a segment with vertical edges of the square [-1,1]*[-1,1]
-void avi(double M[2][10], int *n, double u1, double v1, double u2, double v2){
 /**
-  * @name
-  *     add_vertical_intersections
-  * @param
-  *     M : array containing coordinates of n points
-  *         the points are stocked between 0 and n-1
-  *     P1=(u1,v1), P2=(u2,v2) : [P1,P2] is the segment to intersect
-  *         eq(u1,u2)=false
+  * how are indexed coefficients of matrices :
+  *
+  * for the homographies
+  * 0,0   0,1   0,2
+  * 1,0   1,1   1,2
+  * 2,0   2,1   2,2
+  *
+  * for the affine maps
+  * 0,0   0,1   0,2
+  * 1,0   1,1   1,2
   */
-    //a et b are the intersection points between the straight lines
-    double ua = 1.;
-    double ub = -1.;
-    double va = v1+(ua-u1)*(v2-v1)/(u2-u1);
-    double vb = v1+(ub-u1)*(v2-v1)/(u2-u1);
 
-    //add a and b to M iff they belong to the intersected segments
-    if(fabs(va)<=1. && ((u1<=ua && ua<=u2) || (u2<=ua && ua<=u1))){
-        M[0][*n] = ua;
-        M[1][*n] = va;
-        *n = *n+1;
-    }
-    if(fabs(vb)<=1. && ((u1<=ub && ub<=u2) || (u2<=ub && ub<=u1))){
-        M[0][*n] = ub;
-        M[1][*n] = vb;
-        *n = *n+1;
-    }
-}
 
-//intersect a segment with horizontal edges of the square [-1,1]*[-1,1]
-void ahi(double M[2][10], int *n, double u1, double v1, double u2, double v2){
-/**
-  * @name
-  *     add_horizontal_intersections
-  * @param
-  *     M : array containing coordinates of n points
-  *         the points are stocked between 0 and n-1
-  *     P1=(u1,v1), P2=(u2,v2) : [P1,P2] is the segment to intersect
-  *         eq(v1,v2)=false
-  */
-    //a et b are the intersection points between the straight lines
-    double va = 1.;
-    double vb = -1.;
-    double ua = u1+(va-v1)*(u2-u1)/(v2-v1);
-    double ub = u1+(vb-v1)*(u2-u1)/(v2-v1);
 
-    //add a and b to M iff they belong to the intersected segments
-    if(fabs(ua)<=1. && ((v1<=va && va<=v2) || (v2<=va && va<=v1))){
-        M[0][*n] = ua;
-        M[1][*n] = va;
-        *n = *n+1;
-    }
-    if(fabs(ub)<=1. && ((v1<=vb && vb<=v2) || (v2<=vb && vb<=v1))){
-        M[0][*n] = ub;
-        M[1][*n] = vb;
-        *n = *n+1;
-    }
-}
 
-int umax_vmax(double *u, double *v, double A[2][2]){
+
+// compute the smallest rectangle containing the result of an affine mapping
+void smallest_rectangle(double A[2][3], int wIn, int hIn, int *muOut, int *nuOut, int *wOut, int *hOut){
 /**
   * @param
-  *     u, v : output for u_max and v_max
-  *     A : 2x2 matrix such that img_f(x) = img(Ax)
+  *     A an affine map
+  *     [0,wIn]*[0,hIn] a rectangle of the plan
+  *     [muOut,muOut+wOut]*[nuOut,nuOut+hOut] an output rectangle
+  *
   * @return
-  *     1 iff error
+  *     [muOut,muOut+wOut]*[nuOut,nuOut+hOut] is the smallest rectangle (with integer-coordinated vertices) containing A([0,wIn]*[0,hIn])
+  *     (rectangle starting at (muOut,nuOut) with dimensions wOut*hOut)
   */
-    double detA = A[0][0]*A[1][1]-A[0][1]*A[1][0];
-    //a is the inverse of the transposed matrix of A
-    double a[2][2] = {A[0][0]/detA, -A[1][0]/detA, -A[0][1]/detA, A[1][1]/detA};
-    //(u1,v1) = a(1,1)
-    double u1 = a[0][0]+a[0][1], v1 = a[1][0]+a[1][1];
-    //(u2,v2) = a(1,-1)
-    double u2 = a[0][0]-a[0][1], v2 = a[1][0]-a[1][1];
-
-    int n = 0; //index where to put the next found point
-    double M[2][10];
-
-    //if a point is already inside the square, add them before intersecting
-    if(fabs(u1)<=1 && fabs(v1)<=1){
-        M[0][n]=u1;
-        M[1][n]=v1;
-        n++;
-    }
-    if(fabs(u2)<=1 && fabs(v2)<=1){
-        M[0][n]=u2;
-        M[1][n]=v2;
-        n++;
+    //vertices of the rectangle [0,wIn]*[0,hIn]
+    double xIn[4] = {0,wIn,wIn,0};
+    double yIn[4] = {0,0,hIn,hIn};
+    //vertices of the parallelogram A([0,wIn]*[0,hIn])
+    double xOut[4];
+    double yOut[4];
+    for(int k=0;k<4;k++){
+        xOut[k]=xIn[k]*A[0][0]+yIn[k]*A[0][1]+A[0][2];
+        yOut[k]=xIn[k]*A[1][0]+yIn[k]*A[1][1]+A[1][2];
     }
 
-    if(eq(u1,u2)){ //the two points are vertically align ; do not call avi(M,&n,u1,v1,u2,v2);
-        if(eq(v1,v2)){ //the two points are the same point
-            printf("@umax_vmax : A is not invertible\n");
-            return 1;
-        }else if(eq(v1,-v2)){ //a([-1,1]*[-1,1]) is a rectangle
-            *u = fmin(fabs(u1),1.);
-            *v = fmin(fabs(v1),1.);
-            return 0;
-        }else{
-            ahi(M,&n,u1,v1,u2,v2);
-            ahi(M,&n,u1,v1,-u2,-v2);
-            avi(M,&n,u1,v1,-u2,-u2);
-        }
-    }else if(eq(u1,-u2)){ //same cases than before but with (u1,v1) and (-u2,-v2)
-        if(eq(v1,-v2)){
-            printf("@umax_vmax : A is not invertible\n");
-            return 1;
-        }else if(eq(v1,v2)){
-            *u = fmin(fabs(u1),1.);
-            *v = fmin(fabs(v1),1.);
-            return 0;
-        }else{
-            ahi(M,&n,u1,v1,-u2,-v2);
-            ahi(M,&n,u1,v1,u2,v2);
-            avi(M,&n,u1,v1,u2,u2);
-        }
-    }else{ //general case
-        avi(M,&n,u1,v1,u2,v2);
-        avi(M,&n,u1,v1,-u2,-v2);
-        if(eq(v1,v2)){
-            ahi(M,&n,u1,v1,-u2,-v2);
-        }else if(eq(v1,-v2)){
-            ahi(M,&n,u1,v1,u2,v2);
-        }else{
-            ahi(M,&n,u1,v1,u2,v1);
-            ahi(M,&n,u1,v1,-u2,-v2);
-        }
+    //extrema of the coordinates of the output rectangle's vertices
+    double xOutMin_double = xOut[0];
+    double yOutMin_double = yOut[0];
+    double xOutMax_double = xOut[0];
+    double yOutMax_double = yOut[0];
+    for(int k=1;k<4;k++){
+        xOutMin_double = fmin(xOutMin_double,xOut[k]);
+        yOutMin_double = fmin(yOutMin_double,yOut[k]);
+        xOutMax_double = fmax(xOutMax_double,xOut[k]);
+        yOutMax_double = fmax(yOutMax_double,yOut[k]);
     }
-    if(n==0){ //if no point has been found, then u_max=v_max=1
-        *u = 1;
-        *v = 1;
-        return 0;
-    }else{ //u_max, v_max are the maximal coordinates of all found points
-        *u=fabs(M[0][0]);
-        *v=fabs(M[1][0]);
-        int i;
-        for(i = 0;i<n;i++){
-            *u=fmax(*u,fabs(M[0][i]));
-            *v=fmax(*v,fabs(M[1][i]));
-        }
-        return 0;
+    int xOutMin = floor(xOutMin_double);
+    int yOutMin = floor(yOutMin_double);
+    int xOutMax = ceil(xOutMax_double);
+    int yOutMax = ceil(yOutMax_double);
+
+    //output
+    *muOut = xOutMin;
+    *nuOut = yOutMin;
+    *wOut = xOutMax - xOutMin;
+    *hOut = yOutMax - yOutMin;
+}
+
+
+// decompose H in H = A H0 B
+void decomp(double H[3][3],double A[2][3],double H0[3][3],double B[2][3]){
+/**
+  * @param
+  *     H an input homography
+  *		H0 an output homography
+  *		A,B output affinities
+  */
+    double a=H[0][0], b=H[0][1], p=H[0][2], c=H[1][0], d=H[1][1], q=H[1][2], r=H[2][0], s=H[2][1], t=H[2][2];
+    double t0, t1;
+	//assume r,s != 0,0
+
+    //an infinity of (t0,t1) are possible. Here is a simple one
+    if(fabs(a*s-b*r)<fabs(c*s-d*r)){
+        t0 = 0.;
+        t1 = -((a*s-b*r)*(a*r+b*s)+(c*s-d*r)*(c*r+d*s))/(pow(r,2.)+pow(s,2.))/(c*s-d*r);
+    }else{
+        t0 = -((a*s-b*r)*(a*r+b*s)+(c*s-d*r)*(c*r+d*s))/(pow(r,2.)+pow(s,2.))/(a*s-b*r);;
+        t1 = 0.;
     }
+
+
+
+    //translation of (t0,t1) (H becomes T_(t0,t1)*H)
+    a += t0*r;
+    b += t0*s;
+    p += t0*t;
+    c += t1*r;
+    d += t1*s;
+    q += t1*t;
+
+
+
+    double N_phi = sqrt(pow(r,2.)+pow(s,2.));
+    B[0][0] = r/N_phi;
+	B[0][1] = s/N_phi;
+	B[0][2] = 0.;
+	B[1][0] = -s/N_phi;
+	B[1][1] = r/N_phi;
+	B[1][2] = 0.;
+
+    double N_psi = sqrt(pow(a*s-b*r,2.)+pow(c*s-d*r,2.));
+	A[0][0] = (c*s-d*r)/N_psi;
+	A[0][1] = (a*s-b*r)/N_psi;
+	A[0][2] = -t0;
+	A[1][0] = -(a*s-b*r)/N_psi;
+	A[1][1] = (c*s-d*r)/N_psi;
+	A[1][2] = -t1;
+
+    H0[0][0] = -(a*d-b*c)*N_phi/N_psi;
+    H0[0][1] = 0.;
+    H0[0][2] = (p*(c*s-d*r)-q*(a*s-b*r))/N_psi;
+    H0[1][0] = 0.;
+    H0[1][1] = -N_psi/N_phi;
+    H0[1][2] = (p*(a*s-b*r)+q*(c*s-d*r))/N_psi;
+    H0[2][0] = N_phi;
+    H0[2][1] = 0.;
+    H0[2][2] = t;
+
+}
+
+
+void apply_homography_decomp(float *img,float *img_f,int w,int h,int w_f,int h_f,double H[3][3]){
+
+/**
+  * @param
+  *     img : input image
+  *     img_f : output image
+  *     w,h : width and heights of the input image
+  *		w_f,h_f : width and heights of the output image
+  *     H : inverse homography, such that img_f(x,y)=img(H(x,y))
+  */
+
+	if(H[2][2]!=0 && H[2][0]/H[2][2]==0 && H[2][1]/H[2][2]==0){    //H is an affine map
+		double A[2][3] = {
+			H[0][0]/H[2][2], H[0][1]/H[2][2], H[0][2]/H[2][2],
+			H[1][0]/H[2][2], H[1][1]/H[2][2], H[1][2]/H[2][2]};
+		apply_affine_map(img,img_f,w,h,w_f,h_f,A);
+	}else{  //H is an homography
+		double A[2][3];
+		double H0[3][3];
+		double B[2][3];
+
+		decomp(H,A,H0,B);   //compute the decomposition H = A H0 B
+
+
+
+		//declare the size (w,h) and the position (mu,nu) of every intermediate image
+		/*
+		 * For an image at the position (mu,nu), the coordinates of the (i,j)-th pixel are (i+mu,j+nu)
+		 * rectangleX is the rectangle of the plan [muX,muX+wX]*[nuX,nuX+hX] containing imgX
+		 * Thus, rectangle1 is the input image and rectangle_f is the output image
+		 *
+		 *
+		 * img1 is the input image (mu1=nu1=0, w1=w, h1=h)
+		 * img2 and img3 are the intermediate images
+		 * img4 is the output image (mu4=nu4=0, w4=w_f, h4=h_f)
+		 */
+		int mu2,nu2,w2,h2,
+			mu3,nu3,w3,h3;
+
+		//rectangle2 = invA(rectangle1) where invA = A^(-1)
+		double detA = A[0][0]*A[1][1]-A[1][0]*A[0][1];
+		double invA[2][3] = {
+			A[1][1]/detA,
+			-A[0][1]/detA,
+			(A[0][1]*A[1][2]-A[1][1]*A[0][2])/detA,
+			-A[1][0]/detA,
+			A[0][0]/detA,
+			(-A[0][0]*A[1][2]+A[1][0]*A[0][2])/detA};
+		smallest_rectangle(invA,w,h,&mu2,&nu2,&w2,&h2);
+		if((w2-w)%2!=0){w2++;}  //w2 must have the same parity than w
+		if((h2-h)%2!=0){h2++;}  //h2 must have the same parity than h
+
+		//rectangle3 = B(rectangle4)
+		smallest_rectangle(B,w_f,h_f,&mu3,&nu3,&w3,&h3);
+		if((w3-w_f)%2!=0){w3++;}    //w3 must have the same parity than w_f
+		if((h3-h_f)%2!=0){h3++;}    //h3 must have the same parity than h_f
+
+
+
+		//the affinities must be corrected so that they fit the positions of the rectangles
+		/*
+		 * the exact formulas are
+		 * A[0][2] = mu2*A[0][0] + nu2*A[0][1] + A[0][2] - mu1;
+		 * A[1][2] = mu2*A[1][0] + nu2*A[1][1] + A[1][2] - nu1;
+		 * B[0][2] = mu4*B[0][0] + nu4*B[0][1] + B[0][2] - mu3;
+		 * B[1][2] = mu4*B[1][0] + nu4*B[1][1] + B[1][2] - nu3;
+		 * but a lot of term are zero
+		 */
+		A[0][2] = mu2*A[0][0] + nu2*A[0][1] + A[0][2];
+		A[1][2] = mu2*A[1][0] + nu2*A[1][1] + A[1][2];
+		B[0][2] = - mu3;
+		B[1][2] = - nu3;
+
+
+
+		///Application of the decomposition
+
+		float *img2 = malloc(3*w2*h2*sizeof(float));
+		apply_affine_map(img,img2,w,h,w2,h2,A);
+
+		float *img3 = malloc(3*w3*h3*sizeof(float));
+		apply_unidirectional_homography(img2,img3,w2,h2,w3,h3,mu2,nu2,mu3,nu3,H0);
+		free(img2);
+
+		apply_affine_map(img3,img_f,w3,h3,w_f,h_f,B);
+		free(img3);
+	}
+
+
+	double p[2];
+
+	//truncate the output image, because it has been symmetrized to prevent ringing
+	for(int i=0;i<w_f;i++){
+		for(int j=0;j<h_f;j++){
+			p[0]=i; p[1]=j;
+			apply_homography_1pt(p,H,p);
+			//p[0] = (p[0] - 0.5) * w / (w - 1.0);
+			//p[1] = (p[1] - 0.5) * h / (h - 1.0);
+			if(p[0]<0 || p[0]>w || p[1]<0 || p[1]>h){
+				for(int l=0;l<3;l++){img_f[(j*w_f+i)*3+l]=0;}
+			}
+		}
+	}
+
 }
