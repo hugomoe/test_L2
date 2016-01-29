@@ -1,17 +1,17 @@
 //gcc-5 -fopenmp -O3 viho_alt.c -I/usr/local/include/libiomp -I/usr/X11/include -I/Users/Hhhh/ENS/Stage_L3_math/homographies/code/jpeg-6b -L/usr/X11/lib -lfftw3 -lX11 -L/usr/local/Cellar/libtiff/4.0.3 -ltiff -ljpeg -lpng
 
 
-#include "iio.c"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+
+#include "iio.c"
 #include "decomp.h"
 #include "ground_truth.h"
 #include "ripmap.h"
+#include "parameters.h"
+#include "aux_fun.h"
 //#include <time.h>
-
-#define WOUT 512
-#define HOUT 512
 
 
 
