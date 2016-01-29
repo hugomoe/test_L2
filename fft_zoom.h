@@ -1,11 +1,14 @@
 // On fait un zoom in par zero padding.
 
 
-#include "iio.h"
 #include <stdio.h>
 #include <math.h>
 #include <stdbool.h>
 #include <fftw3.h>
+
+//#include "iio.h"
+#include "parameters.h"
+#include "aux_fun.h"
 
 
  int zoom (float * img, int w,int h,int pd,int kw,int kh,float *img_final)
@@ -52,7 +55,7 @@ for(int l=0;l<pd;l++){
 
 	for(int i=0;i<kw;i++){
 		for(int j=0;j<kh;j++){
-			img_final[(i+j*kw)*pd+l]= (kw/(float)w)*(kh/(float)h)*img_final_aux[i+j*kw];
+			img_final[(i+j*kw)*pd+l]= ((float)kw/(float)w)*((float)kh/(float)h)*img_final_aux[i+j*kw];
 		}
 	}
 
