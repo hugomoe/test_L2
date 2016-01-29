@@ -4,6 +4,8 @@
 #include <omp.h>
 
 #include "umax_vmax.h"
+#include "parameters.h"
+#include "aux_fun.h"
 
 /**
   * how are indexed coefficients of affine maps' matrices :
