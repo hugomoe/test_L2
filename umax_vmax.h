@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "parameters.h"
-
+#include "aux_fun.h"
 
 
 //intersect a segment with vertical edges of the square [-1,1]*[-1,1]
