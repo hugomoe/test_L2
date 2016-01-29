@@ -9,18 +9,6 @@
 //on a une fonction qui donne les coordonné dans le ripmap en fonction de la taille des rectangles
 
 
-
-//des probleme avec les statiques.
-
-/*float evaluate_bilinear_cell(float a, float b, float c, float d,
-							float x, float y)
-{
-	return a * (1-x) * (1-y)
-	     + b * ( x ) * (1-y)
-	     + c * (1-x) * ( y )
-	     + d * ( x ) * ( y );
-}*/
-
 void apply_homography_1pt_rip(double y[2], double H[3][3], double x[2])
 {
 	double X = H[0][0] * x[0] + H[0][1] * x[1] + H[0][2];
