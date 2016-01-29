@@ -1,41 +1,14 @@
 #define ZOOM 5
-//#include "fft_zoom.h"
+#include "fft_zoom.h"
+#include "parameters.h"
+#include "aux_fun.h"
 
-//pour l'instant il n'y a pas de fft
-//LA FAIRE
+//la fft fait beaucoup de ringing
 
 
-
-//cette partie évite d'avoir à factoriser le code
 
 //A RENDRE PROPRE
 
-// auxiliary function: compute n%p correctly, even for huge and negative numbers
-int good_modulus_gr(int nn, int p)
-{
-	if (!p) return 0;
-	if (p < 1) return good_modulus_gr(nn, -p);
-
-	unsigned int r;
-	if (nn >= 0)
-		r = nn % p;
-	else {
-		unsigned int n = nn;
-		r = p - (-n) % p;
-		if (r == p)
-			r = 0;
-	}
-	return r;
-}
-
-void apply_homography_1pt_gr(double y[2], double H[3][3], double x[2])
-{
-	double X = H[0][0] * x[0] + H[0][1] * x[1] + H[0][2];
-	double Y = H[1][0] * x[0] + H[1][1] * x[1] + H[1][2];
-	double Z = H[2][0] * x[0] + H[2][1] * x[1] + H[2][2];
-	y[0] = X / Z;
-	y[1] = Y / Z;
-}
 
 //extrapolate by a constant value
 float getsample_cons(float *x, int w, int h, int pd, int i, int j, int l)
@@ -99,8 +72,8 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 	float *img_aux2 = malloc(3*sizeof(float)*w_f*h_f*ZOOM*ZOOM);
 	for(int i=0;i<w*h*ZOOM*ZOOM*3;i++){img_aux[i]=0;}
 	
-	
-	//Zoom bilineaire
+	//bilinear zoom-in
+	/*
 	for(int l=0;l<3;l++){
 	for(int i=0;i<w;i++){
 		for(int j=0;j<h;j++){
@@ -118,24 +91,29 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 		}
 	}
 	}
+	*/
 	
-	//zoom zero-padding
-	//int w_zoom = ZOOM*w; int h_zoom = ZOOM*h;
-	//zoom(img,w,h,3,w_zoom,h_zoom,img_aux);
+	//zoom-in by zero-padding
+	int w_zoom = ZOOM*w; int h_zoom = ZOOM*h;
+	zoom(img,w,h,3,w_zoom,h_zoom,img_aux);
 	
 	
 	
+	//naive warping
 	for(int l=0;l<3;l++)
 	for (int j = 0; j < ZOOM*h_f; j++)
 	for (int i = 0; i < ZOOM*w_f; i++)
 	{
 		double p[2] ={i,j};
 		
-		apply_homography_1pt_gr(p, HH, p);
+		apply_homography_1pt(p, HH, p);
 		int idx = 3*(ZOOM * w_f * j + i)+l;
 		img_aux2[idx] = bilinear_interpolation_at(img_aux, ZOOM*w, ZOOM*h, 3, p[0], p[1], l);//POURQUOI ?
 	}
 	
+
+
+	//zoom-out by convolution with a gaussian kernel
 	int taps = 3*ZOOM;
 	double sigma = 0.6 * ZOOM;
 	double *gauss = malloc(pow((2*taps+1),2)*sizeof(float));
@@ -154,8 +132,8 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 				float v=0;
 				for(int i2=-taps;i2<=taps;i2++){
 					for(int j2=-taps;j2<=taps;j2++){
-						int i1 = good_modulus_gr(i*ZOOM+i2,w_f*ZOOM);
-						int j1 = good_modulus_gr(j*ZOOM+j2,h_f*ZOOM);
+						int i1 = good_modulus(i*ZOOM+i2,w_f*ZOOM);
+						int j1 = good_modulus(j*ZOOM+j2,h_f*ZOOM);
 						v += gauss[i2+taps+(j2+taps)*(2*taps+1)]*img_aux2[(i1+j1*ZOOM*w_f)*3+l];
 						int idx = l + 3 * (w_f * j + i);
 						img_f[idx] = v;
