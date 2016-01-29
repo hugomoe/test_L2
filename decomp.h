@@ -5,6 +5,8 @@
 
 #include "affine.h"
 #include "homo_box.h"
+#include "parameters.h"
+#include "aux_fun.h"
 
 
 /**
@@ -21,15 +23,6 @@
   */
 
 
-
-static void apply_homography_1pt_aux(double y[2], double H[3][3], double x[2])
-{
-	double X = H[0][0] * x[0] + H[0][1] * x[1] + H[0][2];
-	double Y = H[1][0] * x[0] + H[1][1] * x[1] + H[1][2];
-	double Z = H[2][0] * x[0] + H[2][1] * x[1] + H[2][2];
-	y[0] = X / Z;
-	y[1] = Y / Z;
-}
 
 
 
@@ -237,7 +230,7 @@ void apply_homography_decomp(float *img,float *img_f,int w,int h,int w_f,int h_f
 	for(int i=0;i<w_f;i++){
 		for(int j=0;j<h_f;j++){
 			p[0]=i; p[1]=j;
-			apply_homography_1pt_aux(p,H,p);
+			apply_homography_1pt(p,H,p);
 			//p[0] = (p[0] - 0.5) * w / (w - 1.0);
 			//p[1] = (p[1] - 0.5) * h / (h - 1.0);
 			if(p[0]<0 || p[0]>w || p[1]<0 || p[1]>h){
