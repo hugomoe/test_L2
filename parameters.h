@@ -1,3 +1,6 @@
+#ifndef PARAMETERS
+#define PARAMETERS
+
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -17,4 +20,4 @@
 //a relaxed equality on doubles
 bool eq(double a,double b){if(a<b+pow(2,-PREC2) && a>b-pow(2,-PREC2)){return true;}{return false;}}
 
-
+#endif //PARAMETERS
