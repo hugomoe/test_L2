@@ -5,19 +5,22 @@
 #include <math.h>
 #include <stdlib.h>
 
-//the support of the filter is included in [-SUPP,SUPP]
-#define SUPP 4
+//size of the output image
+#define WOUT 512
+#define HOUT 512
 
-//parameters of the filter
+//parameters for raised cosine-weighted sinc
+#define SUPP 4 //the support of the filter is included in [-SUPP,SUPP]
 #define PERIOD 1. //period of the raised cosine-weighted sinc
 #define BETA 0.36 //roll-off factor of the raised cosine-weighted sinc
+#define PREC 10 //the precomputation of the values of the filter will be at precision 2^(-PREC)
+
+//parameters for the gaussian kernel in ripmap.h
+#define TAPSR 5 //number of non zero values of the kernel (must be odd)
+#define SIG 0.6 //variance
 
 //precision of the computation
-#define PREC 10 //the precomputation of the values of the filter will be at precision 2^(-PREC)
-#define PREC2 20 //an equality will be at precision 2^(-PREC2)
+#define PREC_EQ 20 //an equality will be at precision 2^(-PREC_EQ)
 #define PI 3.14159265358979323
-
-//a relaxed equality on doubles
-bool eq(double a,double b){if(a<b+pow(2,-PREC2) && a>b-pow(2,-PREC2)){return true;}{return false;}}
 
 #endif //PARAMETERS
