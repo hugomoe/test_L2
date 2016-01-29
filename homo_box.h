@@ -3,6 +3,9 @@
 #include <math.h>
 #include <omp.h>
 
+#include "parameters.h"
+#include "aux_fun.h"
+
 /**
   * the program homo_box use the fourth integral image to interpol an image by a piecewise affine function
   * and to convolve this function with the filter g3 (convolution of 3 boxes of width D)
