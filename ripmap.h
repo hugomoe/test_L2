@@ -3,37 +3,16 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include "parameters.h"
+#include "aux_fun.h"
+
 //construit le ripmap (qui est une image 4 fois plus grande, toujours de profondeur 3)
 //On a un ripmap de type float*
 //Les deux premiers entiers correspondent a la taille du rectangle
 //on a une fonction qui donne les coordonné dans le ripmap en fonction de la taille des rectangles
 
 
-void apply_homography_1pt_rip(double y[2], double H[3][3], double x[2])
-{
-	double X = H[0][0] * x[0] + H[0][1] * x[1] + H[0][2];
-	double Y = H[1][0] * x[0] + H[1][1] * x[1] + H[1][2];
-	double Z = H[2][0] * x[0] + H[2][1] * x[1] + H[2][2];
-	y[0] = X / Z;
-	y[1] = Y / Z;
-}
 
-int good_modulus(int nn, int p)
-{
-	if (!p) return 0;
-	if (p < 1) return good_modulus(nn, -p);
-
-	unsigned int r;
-	if (nn >= 0)
-		r = nn % p;
-	else {
-		unsigned int n = nn;
-		r = p - (-n) % p;
-		if (r == p)
-			r = 0;
-	}
-	return r;
-}
 
 
 int coord(int i,int j,int u,int v,int w,int l){
@@ -44,10 +23,6 @@ int coord(int i,int j,int u,int v,int w,int l){
 
 
 //On construit le ripmap. On a ici fait un flitre gaussien dans la direction de la compression
-
-#define TAPSR 5     //nombre de coefficients non nuls du filtre gaussien (doit être impaire)
-#define SIG 0.6    //paramètre du filtre gaussien
-
 
 //deux fonctions de flitrage verticale et horizontale
 
@@ -74,7 +49,7 @@ void build_ripmap(float *img,float *r,int w,int h,int pd,int logw){
 	//on déclare un filtre gaussien 1D;
 	float gauss1D[TAPSR];
 	for(int f=0;f<TAPSR;f++){
-		gauss1D[f]=exp(-pow((TAPSR-1)/2-f,2)/(2*pow(SIG,2)))/(sqrt(2*M_PI)*SIG);
+		gauss1D[f]=exp(-pow((TAPSR-1)/2-f,2)/(2*pow(SIG,2)))/(sqrt(2*PI)*SIG);
 	}
 	float total = 0;
 	for(int f=0;f<TAPSR;f++){total = total + gauss1D[f];}
@@ -261,7 +236,7 @@ int apply_homo_ripmap(float *img,float *img_f,int w,int h,int w_out,int h_out,do
 	for (int i = 0; i < w_out; i++)
 	{
 		double p[2] = {i, j};
-		apply_homography_1pt_rip(p, H, p);
+		apply_homography_1pt(p, H, p);
 		p[0] = (p[0] - 0.5) * w / (w - 1.0);
 		p[1] = (p[1] - 0.5) * h / (h - 1.0);
 		
@@ -303,7 +278,7 @@ int apply_homo_ripmap(float *img,float *img_f,int w,int h,int w_out,int h_out,do
 	for(int i=0;i<w_out;i++){
 		for(int j=0;j<h_out;j++){
 			p[0]=i; p[1]=j;
-			apply_homography_1pt_rip(p,H,p);
+			apply_homography_1pt(p,H,p);
 			p[0] = (p[0] - 0.5) * w / (w - 1.0);
 			p[1] = (p[1] - 0.5) * h / (h - 1.0);
 			if(p[0]<0 || p[0]>w || p[1]<0 || p[1]>h ){
