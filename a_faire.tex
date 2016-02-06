@@ -12,8 +12,6 @@ Voici les taches à remplir pour que la code soit "fini" :
 	-regarder le zoom par zero-padding dans groundtruth (le zoom bilinéaire est opérationnel)
 		pour l'instant elle crée un ringing fort visible
 	
-	-faire la comparaison par norme L1/L2.
-	
 	
 	
 optionnel :
@@ -21,8 +19,12 @@ optionnel :
 	
 	-collecter tous les paramètres à un endroit (ce qu'à commencer Shmuel / autre ?) avec "parameters.h"
 	
+	- créer un exécutable à part (un autre main dans le dossier) qui calculerait les différences l1 et l2 entre img_dec, img_grd et img_rip ; pour l'instant c'est viho_alt.c qui calcule ces différences, donc si on veut revoir les différences/regarder la différence sur une autre sous-image, il faut tout recalculer, y compris ground truth...
+	
+	- si le ripmap est créé indépendamment de l'homographie, on pourrait modifier ripmap pour qui, si un fichier "ripmapconstructed_ilfallaitbienunnom.png" existe déjà, il le lise plutôt que de recalculer le ripmap (c'est un des avantages du ripmap, qu'on exploite pas ici)
+	
 	
 	
 Et le "vrai" problème :
-	pour l'instant ground_truth et ripmap sont beaucoup plus flou que decomposition
+	pour l'instant ground_truth est beaucoup plus floue que decomposition et ripmap
 	il faut donc réfléchir au paramètre pour comprendre
