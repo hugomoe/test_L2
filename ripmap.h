@@ -237,8 +237,6 @@ int apply_homo_ripmap(float *img,float *img_f,int w,int h,int w_out,int h_out,do
 	{
 		double p[2] = {i, j};
 		apply_homography_1pt(p, H, p);
-		//p[0] = (p[0] - 0.5) * w / (w - 1.0);
-		//p[1] = (p[1] - 0.5) * h / (h - 1.0);
 		
 		double z[2]={i,j};
 		double a;
@@ -279,8 +277,6 @@ int apply_homo_ripmap(float *img,float *img_f,int w,int h,int w_out,int h_out,do
 		for(int j=0;j<h_out;j++){
 			p[0]=i; p[1]=j;
 			apply_homography_1pt(p,H,p);
-			//p[0] = (p[0] - 0.5) * w / (w - 1.0);
-			//p[1] = (p[1] - 0.5) * h / (h - 1.0);
 			if(p[0]<0 || p[0]>w || p[1]<0 || p[1]>h ){
 				for(int l=0;l<3;l++){img_f[(j*w_out+i)*3+l]=0;}
 			}
