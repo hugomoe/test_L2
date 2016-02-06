@@ -19,11 +19,14 @@
 
 int main(int argc,char *argv[]){
 
-	if (argc != 11) {
-		printf("usage : [image.png] a b p c d q r s t"); 
+	if (argc != 11 && argc != 15) {
+		printf("usage :\n\t[image.png] a b p c d q r s t\nor\n\t[image.png] a b p c d q r s t i1 j1 i2 j2"); 
 		return 1;
 	}
+
+
 	
+//read the input
 	char *filename_in = argv[1];
 	
 	double H[3][3];
@@ -37,12 +40,30 @@ int main(int argc,char *argv[]){
 	H[2][1]=strtod(argv[9],NULL);
 	H[2][2]=strtod(argv[10],NULL);
 
+	int i1,j1,i2,j2; //coordinates of two opposite vertices of a sub-image of the output
+	switch(argc){
+		case 15:
+		i1 = strtol(argv[11],NULL,10);
+		j1 = strtol(argv[12],NULL,10);
+		i2 = strtol(argv[13],NULL,10);
+		j2 = strtol(argv[14],NULL,10);
+		break;
+		case 11:
+		default:
+		i1 = 0;
+		j1 = 0;
+		i2 = WOUT-1;
+		j2 = HOUT-1;
+		break;
+	}
+
 	float *img;
 	int w,h,pd;
 
 	img = iio_read_image_float_vec(filename_in, &w, &h, &pd);
-	
-	
+
+
+
 //decomposition
 	float *img_dec = malloc(3*WOUT*HOUT*sizeof(float));
 
@@ -65,7 +86,9 @@ int main(int argc,char *argv[]){
 	//fincpu = clock();
 	//finreal = omp_get_wtime();
 	//printf("cputime :%fs\ntime : %fs\n",(double)(fincpu-debutcpu)/CLOCKS_PER_SEC,(double)(finreal-debutreal));
-	
+
+
+
 //Ground truth
 	float *img_grd = malloc(3*WOUT*HOUT*sizeof(float));
 	
@@ -80,13 +103,14 @@ int main(int argc,char *argv[]){
         }
         apply_homo_ground_truth(img3,img_grd,w,h,WOUT,HOUT,H);
 	}
-	
-//Ripmap
 
+
+
+//Ripmap
 	float *img_rip = malloc(3*WOUT*HOUT*sizeof(float));
 	
 	if(pd==3){
-        apply_homo_ground_truth(img,img_rip,w,h,WOUT,HOUT,H);
+        apply_homo_ripmap(img,img_rip,w,h,WOUT,HOUT,H);
 	}else{//suppose pd=1
         float *img3 = malloc(3*w*h*sizeof(float));
         for(int i=0;i<w*h;i++){
@@ -94,13 +118,76 @@ int main(int argc,char *argv[]){
                 img3[3*i+l]=img[i];
             }
         }
-        apply_homo_ground_truth(img3,img_rip,w,h,WOUT,HOUT,H);
+        apply_homo_ripmap(img3,img_rip,w,h,WOUT,HOUT,H);
 	}
-	
+
+
+
+//output
 	iio_save_image_float_vec("img_dec.png",img_dec,WOUT,HOUT,3);
 	iio_save_image_float_vec("img_grd.png",img_grd,WOUT,HOUT,3);
 	iio_save_image_float_vec("img_rip.png",img_rip,WOUT,HOUT,3);
 
 
+
+//error on a sub-image
+	int i_tl, j_tl, //coordinates of the top left pixel of the sub-image
+		i_br, j_br; //coordinates of the bottom right pixel of the sub-image
+	if(i1<i2){
+		i_tl = i1;
+		i_br = i2;
+	}else{
+		i_tl = i2;
+		i_br = i1;
+	}
+	if(j1<j2){
+		j_tl = j1;
+		j_br = j2;
+	}else{
+		j_tl = j2;
+		j_br = j1;
+	}
+
+	//the sub-image must be a subset of the output image
+	if(i_tl<0){i_tl=0;}
+	if(j_tl<0){j_tl=0;}
+	if(i_br>WOUT-1){i_br=WOUT-1;}
+	if(j_br>WOUT-1){j_br=WOUT-1;}
+
+	float l1_dg = 0., l2_dg = 0., //compare decomposition and ground truth
+		l1_dr = 0., l2_dr = 0., //compare decomposition and ripmap
+		l1_rg = 0., l2_rg = 0.; //compare ripmap and ground truth
+
+	float diff;
+	int idx;
+	for(int l=0 ; l<3 ; l++)
+		for(int i=i_tl ; i<=i_br ; i++)
+			for(int j=j_tl ; j<=j_br ; j++){
+				idx = 3*(i+w*j) + l;
+
+				diff = fabs(img_dec[idx]-img_grd[idx]);
+				l1_dg += diff;
+				l2_dg += pow(diff,2);
+
+				diff = fabs(img_dec[idx]-img_rip[idx]);
+				l1_dr += diff;
+				l2_dr += pow(diff,2);
+
+				diff = fabs(img_rip[idx]-img_grd[idx]);
+				l1_rg += diff;
+				l2_rg += pow(diff,2);
+	}
+
+	int N = (i_br-i_tl+1)*(j_br-j_tl+1)*3; //size of the sub-image
+	l1_dg = l1_dg/N;
+	l2_dg = sqrt(l2_dg/N);
+	l1_dr = l1_dr/N;
+	l2_dr = sqrt(l2_dr/N);
+	l1_rg = l1_rg/N;
+	l2_rg = sqrt(l2_rg/N);
+	
+	//print
+	printf("l1-error :\n\t\tGround Truth\tRipMap\nDecomposition\t%f\t%f\nRipMap\t\t%f\n\n",l1_dg,l1_dr,l1_rg);
+	printf("l2-error :\n\t\tGround Truth\tRipMap\nDecomposition\t%f\t%f\nRipMap\t\t%f\n\n",l2_dg,l2_dr,l2_rg);
 	return 0;
 }
