@@ -4,14 +4,12 @@ Ceci est un code que j’aimerais définitif.
 
 Pour l'instant il se contente de prendre en entrée une image et 9 coefficients d'une homographie et de créée trois fichier.png pour la décompostition, la "vérité terrain" et le Ripmap et les compare. On peut préciser une sous-image sur laquelle comparer.
 En compilant compare_sub.c, on peut recomparer d'autres sous-images sans recalculer les transformations (il faut avoir conservé et non renommé les images à comparer)
-La vérité terrain a l'air beaucoup plus floue que les deux autres.
+La vérité terrain est plus floue que les deux autres, selon le sigma choisi.
 
 
 
 Voici les taches à remplir pour que la code soit "fini" :
-
-	-regarder le zoom par zero-padding dans groundtruth (le zoom bilinéaire est opérationnel)
-		pour l'instant elle crée un ringing fort visible quand on utilise le zero-padding
+	toutes ces tâches ont été accomplies !
 	
 	
 	
@@ -25,5 +23,9 @@ optionnel :
 	
 	
 Et le "vrai" problème :
-	pour l'instant ground_truth est beaucoup plus floue que decomposition et ripmap
+	pour l'instant ground_truth est plus floue que decomposition et ripmap
 	il faut donc réfléchir au paramètre pour comprendre
+
+problèmes de bords :
+	le rip map semble périodiser d'un pixel sur un bord (bien visible avec ./viho_alt lena.png 3.865385 0 -763.076923 1.579670 2.285714 -763.076823 0.011447 0 -1.289377 230 190 440 310), la vérité terrain symétrise peut-être d'un demi pixel sur le bord, la décomposition symétrise d'un pixel sur le bord
+	du coup aucun bord n'est au même endroit, ce qui se voit visuellement. Ce n'est pas important tant qu'on calcule l'erreur sur des sous-images bien choisies
