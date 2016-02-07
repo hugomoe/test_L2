@@ -6,118 +6,115 @@
 #include <stdbool.h>
 #include <fftw3.h>
 
-//#include "iio.h"
 #include "parameters.h"
 #include "aux_fun.h"
 
 
- int zoom (float * img, int w,int h,int pd,int kw,int kh,float *img_final)
- { void fourierForward(float* in,float* reOut,float* imOut,unsigned int largeur,unsigned int hauteur) ;
-   void fourierBackward(float* reIn,float* imIn,float* out,unsigned int largeur,unsigned int hauteur) ;
+int zoom (float *img, int w,int h,int pd,int kw,int kh,float *img_final)
+{ void fourierForward(float* in,float* reOut,float* imOut,unsigned int w,unsigned int h);
+  void fourierBackward(float* reIn,float* imIn,float* out,unsigned int w,unsigned int h);
+/**
+  * img the input image, of size w*h*pd
+  * img_final the output image, of size kw*kh*pd
+  */
 
- /* Soit img le pointeur de l'image de départ */
- /* soit w la longueur et h la largeur de l'image de départ */
- // kw et kh seront respectivement la longueur et la largeur de l'image finale.
 
 
-	float *refftimg= malloc(w*h*sizeof(float));
-	float *imfftimg= malloc(w*h*sizeof(float));
-	float *img_aux= malloc(w*h*sizeof(float));
-	float *refftimg2=malloc(kw*kh*sizeof(float));
-	float *imfftimg2=malloc(kw*kh*sizeof(float));
-	float *img_final_aux=malloc(sizeof(float)*kw*kh);
+	float *refftimg = malloc(w*h*sizeof(float));
+	float *imfftimg = malloc(w*h*sizeof(float));
+	float *img_aux = malloc(w*h*sizeof(float));
+	float *refftimg_final = malloc(kw*kh*sizeof(float));
+	float *imfftimg_final =malloc(kw*kh*sizeof(float));
+	float *img_final_aux = malloc(kw*kh*sizeof(float));
 	
-for(int l=0;l<pd;l++){ 
+  for(int l=0;l<pd;l++){ 
 
-	//met a zero
-	for(int i=0;i<w*h;i++){img_aux[i]=img[pd*i+l];imfftimg[i]=0;refftimg[i]=0;}
-	for(int i=0;i<kw*kh;i++){refftimg2[i]=0;imfftimg2[i]=0;img_final_aux[i]=0;}
-   
-	fourierForward(img_aux,refftimg,imfftimg,w,h) ; // transformé de Fourier directe
-
-    // début zéro-padding
-	for (int i=0;i<kw;i++){
-		for (int j=0;j<kh;j++){  
-			refftimg2[i+j*kw]=0 ; 
-            imfftimg2[i+j*kw]=0 ;     
-        }
+    //extract a channel of color
+    for(int i=0;i<w*h;i++){
+      img_aux[i]=img[pd*i+l];
     }
 
-    for (int i=0;i<w;i++){
-       for (int j=0;j<h;j++){  
-       		refftimg2[kw/2-w/2+i+kw*(kh/2-h/2+j)]=refftimg[w*j+i] ;     
-        	imfftimg2[kw/2-w/2+i+kw*(kh/2-h/2+j)]=imfftimg[w*j+i] ; 
-    	}
+    //Fourier transform
+    fourierForward(img_aux,refftimg,imfftimg,w,h);
+
+    //zero-padding
+    for (int i=0;i<kw;i++)
+      for (int j=0;j<kh;j++){  
+        refftimg_final[i+j*kw]=0; 
+        imfftimg_final[i+j*kw]=0;
     }
-    // fin zéro-padding
-	fourierBackward(refftimg2, imfftimg2, img_final_aux, kw,kh); // transformée de Fourier inverse
-	
+    for (int i=0;i<w;i++)
+      for (int j=0;j<h;j++){
+        int idx = (kw-w)/2+i+kw*((kh-h)/2+j);
+        refftimg_final[idx]=refftimg[w*j+i];     
+        imfftimg_final[idx]=imfftimg[w*j+i];
+    }
 
-	for(int i=0;i<kw;i++){
-		for(int j=0;j<kh;j++){
-			img_final[(i+j*kw)*pd+l]= ((float)kw/(float)w)*((float)kh/(float)h)*img_final_aux[i+j*kw];
-		}
-	}
+    //inverse Fourier transform
+    fourierBackward(refftimg_final, imfftimg_final, img_final_aux, kw,kh);
 
-}
+    //output
+    for(int i=0;i<kw;i++)
+      for(int j=0;j<kh;j++){
+        img_final[(i+j*kw)*pd+l]= ((float)kw/(float)w)*((float)kh/(float)h)*img_final_aux[i+j*kw];
+    }
 
-	free(refftimg2);
-	free(imfftimg2);
-	free(refftimg);
-	free(imfftimg);
-	free(img_aux);
+  }
+
+  free(refftimg);
+  free(imfftimg);
+  free(img_aux);
+	free(refftimg_final);
+	free(imfftimg_final);
 	free(img_final_aux);
 	
-return 0 ;
+  return 0 ;
 }
 
 
 
 
-// transformées de Fourier :
 
-void fourierForward(float* in,
-                    float* reOut,
-                    float* imOut,
-                    unsigned int largeur,
-                    unsigned int hauteur)
+//Fourier transform
+void fourierForward(float* in, //input image
+                    float* reOut, //real part of FFT of the output
+                    float* imOut, //imaginary part of FFT of the output
+                    unsigned int w, //width
+                    unsigned int h) //height
 {
-   fftw_complex* spatial_repr;
-   fftw_complex* frequency_repr;
-   unsigned int i;
-   unsigned int j;
-   fftw_plan plan;
-   int x,y;
- 
-   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
-   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
- 
- 
-   for(i=0;i<largeur*hauteur;i++)
-   {
-      spatial_repr[i][0] = in[i];
-      spatial_repr[i][1] =  0.0f;
-   }
- 
-   /*on calcule le plan d'exécution*/
-   plan=fftw_plan_dft_2d(hauteur, largeur, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE);
- 
-   /*on calcule la transformée*/
-   fftw_execute(plan);
- 
-  for(j=0;j<hauteur;j++)
-      for(i=0;i<largeur;i++)
-      {
-	        /*on recentre l'image*/
-	      x=good_modulus(i+largeur/2,largeur);
-	      y=good_modulus(j+hauteur/2,hauteur);
-          reOut[y*largeur+x]=frequency_repr[j*largeur+i][0];
-          imOut[y*largeur+x]=frequency_repr[j*largeur+i][1];
-      }
- 
-   fftw_destroy_plan(plan);
-   fftw_free(spatial_repr);
-   fftw_free(frequency_repr);
+  fftw_complex* spatial_repr;
+  fftw_complex* frequency_repr;
+  unsigned int i;
+  unsigned int j;
+  fftw_plan plan;
+  int x,y;
+
+  spatial_repr= fftw_malloc(sizeof(fftw_complex)*w*h);
+  frequency_repr= fftw_malloc(sizeof(fftw_complex)*w*h);
+
+  for(i=0;i<w*h;i++){
+    spatial_repr[i][0] = in[i];
+    spatial_repr[i][1] =  0.0f;
+  }
+
+  //compute execution plane
+  plan=fftw_plan_dft_2d(h, w, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE);
+
+  //compute FFT
+  fftw_execute(plan);
+
+  //recentered output
+  for(j=0;j<h;j++)
+    for(i=0;i<w;i++){
+      x=good_modulus(i+w/2,w);
+      y=good_modulus(j+h/2,h);
+      reOut[y*w+x]=frequency_repr[j*w+i][0];
+      imOut[y*w+x]=frequency_repr[j*w+i][1];
+  }
+
+  fftw_destroy_plan(plan);
+  fftw_free(spatial_repr);
+  fftw_free(frequency_repr);
  
 }
 		
@@ -125,50 +122,44 @@ void fourierForward(float* in,
 
 
 
-
-/* reIn : partie réel de l'image dans l'espace de Fourier
- * imIn : partie imaginaire de l'image dans l'espace de Fourier
- * out : image de sortie
- * largeur : largeur des images d'entrée et de sortie
- */
-void fourierBackward(float* reIn,
-                     float* imIn,
-                     float* out,
-                     unsigned int largeur,
-                     unsigned int hauteur)
+//inverse Fourier transform
+void fourierBackward(float* reIn, //real part of FFT of the input 
+                     float* imIn, //imaginary part of FFT of the input
+                     float* out, //output image
+                     unsigned int w, //width
+                     unsigned int h) //height
 {
-   fftw_complex* spatial_repr;
-   fftw_complex* frequency_repr;
-   unsigned int i;
-   unsigned int j;
-   int x,y;
-   fftw_plan plan;
- 
-   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
-   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
- 
-   for(j=0;j<hauteur;j++)
-      for(i=0;i<largeur;i++)
-      {
-          /*on décentre*/
-	      x=good_modulus(i+largeur/2,largeur);
-	      y=good_modulus(j+hauteur/2,hauteur);
+  fftw_complex* spatial_repr;
+  fftw_complex* frequency_repr;
+  unsigned int i;
+  unsigned int j;
+  int x,y;
+  fftw_plan plan;
 
-	      frequency_repr[j*largeur+i][0]=reIn[y*largeur+x];
-	      frequency_repr[j*largeur+i][1]=imIn[y*largeur+x];
-      }
- 
-  plan=fftw_plan_dft_2d(hauteur, largeur, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE);
- 
+  spatial_repr= fftw_malloc(sizeof(fftw_complex)*w*h);
+  frequency_repr= fftw_malloc(sizeof(fftw_complex)*w*h);
+
+  //uncentered input
+  for(j=0;j<h;j++)
+    for(i=0;i<w;i++){
+      x=good_modulus(i-w/2,w);
+      y=good_modulus(j-h/2,h);
+      frequency_repr[j*w+i][0]=reIn[y*w+x];
+      frequency_repr[j*w+i][1]=imIn[y*w+x];
+  }
+
+  //compute execution plane
+  plan=fftw_plan_dft_2d(h, w, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE);
+
+  //compute inverse FFT
   fftw_execute(plan);
- 
-   /*on retranscrit l'image complexe en image réelle, sans oublier de diviser par largeur*hauteur*/
-   for(i=0;i<largeur*hauteur;i++)
-   {
-      out[i]=spatial_repr[i][0]/(largeur*hauteur);
-   }
- 
-   fftw_destroy_plan(plan);
-   fftw_free(spatial_repr);
-   fftw_free(frequency_repr);
+
+  //normalize and convert complex data to real data
+  for(i=0;i<w*h;i++){
+    out[i]=spatial_repr[i][0]/(float) (w*h);
+  }
+
+  fftw_destroy_plan(plan);
+  fftw_free(spatial_repr);
+  fftw_free(frequency_repr);
 }
