@@ -1,4 +1,3 @@
-#define ZOOM 5
 #include "fft_zoom.h"
 #include "parameters.h"
 #include "aux_fun.h"
@@ -68,9 +67,9 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 	HH[2][2]=H[2][2];
 	
 	
-	float *img_aux = malloc(3*sizeof(float)*w*h*ZOOM*ZOOM);
-	float *img_aux2 = malloc(3*sizeof(float)*w_f*h_f*ZOOM*ZOOM);
-	for(int i=0;i<w*h*ZOOM*ZOOM*3;i++){img_aux[i]=0;}
+
+	float *img_zoom = malloc(3*sizeof(float)*w*h*ZOOM*ZOOM);
+	float *img_f_zoom = malloc(3*sizeof(float)*w_f*h_f*ZOOM*ZOOM);
 	
 	//bilinear zoom-in
 	/*
@@ -84,7 +83,7 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 					int id,jd;
 					if(i==w-1){id=0;}else{id=i+1;}
 					if(j==h-1){jd=0;}else{jd=j+1;}
-					img_aux[3*(i*ZOOM+u+(j*ZOOM+v)*w*ZOOM)+l]=(1-x)*(1-y)*(img[(i+j*w)*3+l])+(1-x)*y*(img[(i+jd*w)*3+l])
+					img_zoom[3*(i*ZOOM+u+(j*ZOOM+v)*w*ZOOM)+l]=(1-x)*(1-y)*(img[(i+j*w)*3+l])+(1-x)*y*(img[(i+jd*w)*3+l])
 					+x*(1-y)*(img[(id+j*w)*3+l])+x*y*(img[(id+jd*w)*3+l]);
 				}
 			}
@@ -93,10 +92,34 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 	}
 	*/
 	
+	//symmetrize the input
+	float *img_sym = malloc(2*w*2*h*3*sizeof(float));
+	int i_sym, j_sym;
+	for(int l=0;l<3;l++){
+		for(int i=0;i<2*w;i++){
+			i_sym = i-w/2;
+			if(i_sym<0){i_sym = -1-i_sym;}
+			else if(i_sym>w-1){i_sym = 2*w-1-i_sym;}
+			for(int j=0;j<2*h;j++){
+				j_sym = j-h/2;
+				if(j_sym<0){j_sym = -1-j_sym;}
+				else if(j_sym>w-1){j_sym = 2*h-1-j_sym;}
+				img_sym[3*(i+2*w*j)+l] = img[3*(i_sym+w*j_sym)+l];
+			}
+		}
+	}
 	//zoom-in by zero-padding
-	int w_zoom = ZOOM*w; int h_zoom = ZOOM*h;
-	zoom(img,w,h,3,w_zoom,h_zoom,img_aux);
-	
+	float *img_sym_zoom = malloc(2*w*ZOOM*2*h*ZOOM*3*sizeof(float));
+	zoom(img_sym,2*w,2*h,3,2*w*ZOOM,2*h*ZOOM,img_sym_zoom);
+	//erase the symmetrization
+	for(int l=0;l<3;l++){
+		for(int i=0;i<w*ZOOM;i++){
+			for(int j=0;j<h*ZOOM;j++){
+				img_zoom[3*(i + w*ZOOM * j) + l] = img_sym_zoom[3*(i+w*ZOOM/2 + 2*w*ZOOM * (j+h*ZOOM/2)) + l];
+			}
+		}
+	}
+
 	
 	
 	//naive warping
@@ -108,22 +131,23 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 		
 		apply_homography_1pt(p, HH, p);
 		int idx = 3*(ZOOM * w_f * j + i)+l;
-		img_aux2[idx] = bilinear_interpolation_at(img_aux, ZOOM*w, ZOOM*h, 3, p[0], p[1], l);//POURQUOI ?
+		img_f_zoom[idx] = bilinear_interpolation_at(img_zoom, ZOOM*w, ZOOM*h, 3, p[0], p[1], l);//POURQUOI ?
 	}
 	
 
 
 	//zoom-out by convolution with a gaussian kernel
 	int taps = 3*ZOOM;
-	double sigma = 0.6 * ZOOM;
-	double *gauss = malloc(pow((2*taps+1),2)*sizeof(float));
+	double sigma = 0.5 * ZOOM; //double sigma = 0.6 * ZOOM; //results look better with 0.5
+	double *gauss = malloc(pow((2*taps+1),2)*sizeof(double));
 	double tot = 0;
 	for(int i=-taps;i<=taps;i++){
 		for(int j=-taps;j<=taps;j++){
 			tot += (gauss[i+taps+(j+taps)*(2*taps+1)] = exp(-(pow(i,2)+pow(j,2))/(2*pow(sigma,2))));
 		}
-	}	
+	}
 	for(int u=0;u<pow(2*taps+1,2);u++){gauss[u]=gauss[u]/tot;}
+
 
 	
 	for(int l=0;l<3;l++){
@@ -134,7 +158,7 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 					for(int j2=-taps;j2<=taps;j2++){
 						int i1 = good_modulus(i*ZOOM+i2,w_f*ZOOM);
 						int j1 = good_modulus(j*ZOOM+j2,h_f*ZOOM);
-						v += gauss[i2+taps+(j2+taps)*(2*taps+1)]*img_aux2[(i1+j1*ZOOM*w_f)*3+l];
+						v += gauss[i2+taps+(j2+taps)*(2*taps+1)]*img_f_zoom[(i1+j1*ZOOM*w_f)*3+l];
 						int idx = l + 3 * (w_f * j + i);
 						img_f[idx] = v;
 					}
@@ -142,7 +166,11 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 			}
 		}
 	}
-	
-	
+
+	free(img_sym);
+	free(img_sym_zoom);
+	free(img_zoom);
+	free(img_f_zoom);
+	free(gauss);
 	return 0;
 }
