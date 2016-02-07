@@ -1,4 +1,15 @@
 //gcc-5 -fopenmp -O3 viho_alt.c -I/usr/local/include/libiomp -I/usr/X11/include -I/Users/Hhhh/ENS/Stage_L3_math/homographies/code/jpeg-6b -L/usr/X11/lib -lfftw3 -lX11 -L/usr/local/Cellar/libtiff/4.0.3 -ltiff -ljpeg -lpng
+/**
+  * visualize an homography, warped by three different methods (decomposition, ground truth and RipMap)
+  * 
+  * compilation
+  * 	gcc-5 -fopenmp -O3 viho_alt.c -lfftw3 -lX11 -ltiff -ljpeg -lpng -o viho_alt
+  * usage
+  * 	./viho_alt [image.png] a b p c d q r s t
+  *		or
+  * 	./viho_alt [image.png] a b p c d q r s t i1 j1 i2 j2
+  */
+
 
 
 #include <stdlib.h>
@@ -12,8 +23,6 @@
 #include "parameters.h"
 #include "aux_fun.h"
 //#include <time.h>
-
-
 
 
 
@@ -157,13 +166,13 @@ int main(int argc,char *argv[]){
 	float l1_dg = 0., l2_dg = 0., //compare decomposition and ground truth
 		l1_dr = 0., l2_dr = 0., //compare decomposition and ripmap
 		l1_rg = 0., l2_rg = 0.; //compare ripmap and ground truth
-
 	float diff;
 	int idx;
-	for(int l=0 ; l<3 ; l++)
+
+	for(int l=0 ; l<pd ; l++)
 		for(int i=i_tl ; i<=i_br ; i++)
 			for(int j=j_tl ; j<=j_br ; j++){
-				idx = 3*(i+w*j) + l;
+				idx = 3*(i+WOUT*j) + l;
 
 				diff = fabs(img_dec[idx]-img_grd[idx]);
 				l1_dg += diff;
@@ -178,16 +187,21 @@ int main(int argc,char *argv[]){
 				l2_rg += pow(diff,2);
 	}
 
-	int N = (i_br-i_tl+1)*(j_br-j_tl+1)*3; //size of the sub-image
-	l1_dg = l1_dg/N;
-	l2_dg = sqrt(l2_dg/N);
-	l1_dr = l1_dr/N;
-	l2_dr = sqrt(l2_dr/N);
-	l1_rg = l1_rg/N;
-	l2_rg = sqrt(l2_rg/N);
+	//normalize
+	int N = (i_br-i_tl+1)*(j_br-j_tl+1)*pd; //size of the sub-image
+	l1_dg = l1_dg/(float) N;
+	l2_dg = sqrt(l2_dg/(float) N);
+	l1_dr = l1_dr/(float) N;
+	l2_dr = sqrt(l2_dr/(float) N);
+	l1_rg = l1_rg/(float) N;
+	l2_rg = sqrt(l2_rg/(float) N);
 	
 	//print
-	printf("l1-error :\n\t\tGround Truth\tRipMap\nDecomposition\t%f\t%f\nRipMap\t\t%f\n\n",l1_dg,l1_dr,l1_rg);
-	printf("l2-error :\n\t\tGround Truth\tRipMap\nDecomposition\t%f\t%f\nRipMap\t\t%f\n\n",l2_dg,l2_dr,l2_rg);
+	printf("l1-error :\n\t\t\tGround Truth\tRipMap\n\tDecomposition\t%f\t%f\n\tRipMap\t\t%f\n\n",l1_dg,l1_dr,l1_rg);
+	printf("l2-error :\n\t\t\tGround Truth\tRipMap\n\tDecomposition\t%f\t%f\n\tRipMap\t\t%f\n\n",l2_dg,l2_dr,l2_rg);
+	
+	free(img_dec);
+	free(img_grd);
+	free(img_rip);
 	return 0;
 }
