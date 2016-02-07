@@ -1,4 +1,3 @@
-//SECTION 5.5 Ripmap
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -6,26 +5,35 @@
 #include "parameters.h"
 #include "aux_fun.h"
 
-//construit le ripmap (qui est une image 4 fois plus grande, toujours de profondeur 3)
-//On a un ripmap de type float*
-//Les deux premiers entiers correspondent a la taille du rectangle
-//on a une fonction qui donne les coordonné dans le ripmap en fonction de la taille des rectangles
+
+
+/**
+  * construct the RipMap (a float-typed image 4 times larger than the input image, pd=3)
+  */
 
 
 
 
-
+//gives the coordinates in the RipMap depending on the size of the rectangles (given by i,j)
 int coord(int i,int j,int u,int v,int w,int l){
+	/*
+	 * i,j give the size of the rectangle
+	 * the largest rectangle representing the original image corresponds to i=j=0
+	 *
+	 * u,v are the coordinates in the original image
+	 * 
+	 * w is the width of the original image
+	 * 
+	 * l is the current channel of color
+	 */
 	int x = good_modulus(u,w/pow(2,i));
 	int y = good_modulus(v,w/pow(2,j));
 	return (2*(1-1/pow(2,i))*w + 4*(1-1/pow(2,j))*w*w + x + y*2*w)*3+l;
 }
 
 
-//On construit le ripmap. On a ici fait un flitre gaussien dans la direction de la compression
 
-//deux fonctions de flitrage verticale et horizontale
-
+//convolve horizontally by a gaussian kernel
 float gaussian_filter_h(float *r,int i,int j,int u,int v,int w,int l,float *g){
 	float a,b;
 	a = b = 0;
@@ -33,7 +41,7 @@ float gaussian_filter_h(float *r,int i,int j,int u,int v,int w,int l,float *g){
 	for(int f=0;f<TAPSR;f++){b += r[coord(i-1,j,2*u+1+f-(TAPSR-1)/2,v,w,l)]*g[f];}
 	return (a+b)/2;
 }
-
+//convolve vertically by a gaussian kernel
 float gaussian_filter_v(float *r,int i,int j,int u,int v,int w,int l,float *g){
 	float a,b;
 	a = b = 0;
@@ -42,19 +50,20 @@ float gaussian_filter_v(float *r,int i,int j,int u,int v,int w,int l,float *g){
 	return (a+b)/2;
 }
 
-
+//build the RipMap
 void build_ripmap(float *img,float *r,int w,int h,int pd,int logw){
 	int l,ll,i,j,u,v,w1,w2;
 	
-	//on déclare un filtre gaussien 1D;
+	//1D gaussian kernel
 	float gauss1D[TAPSR];
 	for(int f=0;f<TAPSR;f++){
 		gauss1D[f]=exp(-pow((TAPSR-1)/2-f,2)/(2*pow(SIG,2)))/(sqrt(2*PI)*SIG);
 	}
 	float total = 0;
-	for(int f=0;f<TAPSR;f++){total = total + gauss1D[f];}
+	for(int f=0;f<TAPSR;f++){total += gauss1D[f];}
 	for(int f=0;f<TAPSR;f++){gauss1D[f] = gauss1D[f]/total;}
 	
+	//copy the original image in the rectangle i,j=0,0
 	for(u=0;u<w;u++){
 		for(v=0;v<h;v++){
 			for(l=0;l<3;l++){
@@ -63,8 +72,8 @@ void build_ripmap(float *img,float *r,int w,int h,int pd,int logw){
 			}
 		}
 	}
-//on construit l'image d'origine en (0,0)	
 
+	//compute the rectangles obtained by successive horizontal zooms-out
 	for(i=1;pow(2,i)<=w;i++){
 		w1=w/pow(2,i);
 		for(u=0;u<w1;u++){
@@ -75,8 +84,8 @@ void build_ripmap(float *img,float *r,int w,int h,int pd,int logw){
 			}
 		}
 	}
-//ici on moyenne simplement pour avoir tous les rectangles aplatis en largeur	
 
+	//for each previous rectangle, compute the rectangles obtained by successive vertical zooms-out
 	for(i=0;pow(2,i)<=w;i++){
 		w1=w/pow(2,i);
 		for(j=1;pow(2,j)<=w;j++){
@@ -90,16 +99,15 @@ void build_ripmap(float *img,float *r,int w,int h,int pd,int logw){
 			}
 		}
 	}
-//ici on obtient les rectangles aplatis en hauteur a partir de ceux calculés avant 
-	//return r;
 }
 
 
-//Pour la fonction de distance, on prend dh = |du/dx|+|du/dy| et dl = |dv/dx| + |dv/dy|
-//On a ainsi le plus petit rectangle qui contient l'affinité localement
+
+//the distance function is the smallest rectangle containing the pre-image (by the locally affine-approximated warping)
+//the rectangle is of size dh = |du/dx|+|du/dy| and dl = |dv/dx| + |dv/dy|
 
 
-// on a utilisé cela comme ref pour écrire les fonctions
+// notations :
 // c = D[9]x+D[10]y+D[11]
 // du/dx = D[1]y+D[2]/c
 // du/dy = D[5]x+D[6]/c
@@ -124,9 +132,6 @@ void precal_D(double H[3][3],double *D){
 	D[10]=a[7];
 	D[11]=a[8];
 }
-
-
-/*double fabs(double p){if(p>0){return p;}{return -p;}} *///une valeur absolu pour les double
 
 
 
@@ -154,11 +159,12 @@ void cal_D(int x,int y,double *D,double *d,double *coo){
 }
 
 
-//l'interpolation bilinéaire
+//bilinear interpolation on the RipMap
 static float bilinear_ripmap(float *x, int w,
-		float p, float q, int l, int d1, int d2){	
+		float p, float q, int l, int d1, int d2){
+	//a rectangle represent several pixels ; thus the coordinates p and q must be shifted
 	float pp = p - 1/2*(pow(2,d1)-1)/pow(2,d1);
-	float qq = q - 1/2*(pow(2,d2)-1)/pow(2,d2);   //on decale car les rectangles représente plusieurs pixels
+	float qq = q - 1/2*(pow(2,d2)-1)/pow(2,d2);
 	int ip = floor(p);
 	int iq = floor(q);
 	float a = x[coord(d1,d2,ip,iq,w,l)];
