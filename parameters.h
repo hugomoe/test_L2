@@ -19,6 +19,10 @@
 #define TAPSR 5 //number of non zero values of the kernel (must be odd)
 #define SIG 0.6 //variance
 
+//parameters for the distance D in ripmap.h
+#define D_BIAS 0. //added to the distance
+#define D_COEFF 1.
+
 //zoom for the ground truth
 #define ZOOM 5
 
