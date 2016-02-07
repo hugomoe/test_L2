@@ -19,6 +19,9 @@
 #define TAPSR 5 //number of non zero values of the kernel (must be odd)
 #define SIG 0.6 //variance
 
+//zoom for the ground truth
+#define ZOOM 5
+
 //precision of the computation
 #define PREC_EQ 20 //an equality will be at precision 2^(-PREC_EQ)
 #define PI 3.14159265358979323
