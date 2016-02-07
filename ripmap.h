@@ -129,9 +129,6 @@ void precal_D(double H[3][3],double *D){
 /*double fabs(double p){if(p>0){return p;}{return -p;}} *///une valeur absolu pour les double
 
 
-//un variable globale que l'on additionne a la distance
-#define D_BIAS 0.
-#define D_COEFF 1.
 
 //la fonction de calcul de D. On a pris le plus petit rectangle qui encadre le parallélogramme
 void cal_D(int x,int y,double *D,double *d,double *coo){
