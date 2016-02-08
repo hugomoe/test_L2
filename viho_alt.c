@@ -10,7 +10,7 @@
   * 	./viho_alt [image.png] a b p c d q r s t i1 j1 i2 j2
   */
 
-
+/*FOR NOW, RIPMAP ONLY WORKS ON SQUARE IMAGES OF SIZE 2^n*/
 
 #include <stdlib.h>
 #include <stdio.h>
