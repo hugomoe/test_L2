@@ -135,29 +135,6 @@ void precal_D(double H[3][3],double *D){
 
 
 
-//la fonction de calcul de D. On a pris le plus petit rectangle qui encadre le parallélogramme
-void cal_D(int x,int y,double *D,double *d,double *coo){
-	double p[2]={x,y};
-	double a;
-	a = pow(D[9]*p[0]+D[10]*p[1]+D[11],2);
-	
-//On declare les dérivé partielles	
-	double dudx,dudy,dvdx,dvdy;
-	dudx = (D[1]*p[1]+D[2])/a;
-	dudy = (D[5]*p[0]+D[6])/a;
-	dvdx = (D[3]*p[1]+D[4])/a;
-	dvdy = (D[7]*p[0]+D[8])/a;
-	
-//On decale l'origine du rectangle pour que le parallélogramme soit à l'intérieur	
-	if(dudx<0){coo[0] += dudx*D_COEFF;}
-	if(dudy<0){coo[0] += dudy*D_COEFF;}
-	if(dvdx<0){coo[1] += dvdx*D_COEFF;}
-	if(dvdy<0){coo[1] += dvdy*D_COEFF;}
-	
-	d[0] = ( fabs(dudx) + fabs(dudy) + D_BIAS )*D_COEFF;
-	d[1] = ( fabs(dvdx) + fabs(dvdy) + D_BIAS )*D_COEFF;
-}
-
 
 //bilinear interpolation on the RipMap
 static float bilinear_ripmap(float *x, int w,
@@ -165,8 +142,8 @@ static float bilinear_ripmap(float *x, int w,
 	//a rectangle represent several pixels ; thus the coordinates p and q must be shifted
 	float pp = p - 1/2*(pow(2,d1)-1)/pow(2,d1);
 	float qq = q - 1/2*(pow(2,d2)-1)/pow(2,d2);
-	int ip = floor(p);
-	int iq = floor(q);
+	int ip = floor(pp);
+	int iq = floor(qq);
 	float a = x[coord(d1,d2,ip,iq,w,l)];
 	float b = x[coord(d1,d2,ip+1,iq,w,l)];
 	float c = x[coord(d1,d2,ip,iq+1,w,l)];
