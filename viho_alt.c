@@ -3,7 +3,7 @@
   * visualize an homography, warped by three different methods (decomposition, ground truth and RipMap)
   * 
   * compilation
-  * 	gcc-5 -fopenmp -O3 viho_alt.c -lfftw3 -lX11 -ltiff -ljpeg -lpng -o viho_alt
+  * 	gcc-5 -fopenmp -O3 viho_alt.c -lfftw3 -ltiff -ljpeg -lpng -o viho_alt
   * usage
   * 	./viho_alt [image.png] a b p c d q r s t
   *		or
