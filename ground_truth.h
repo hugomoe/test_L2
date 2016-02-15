@@ -2,8 +2,6 @@
 #include "parameters.h"
 #include "aux_fun.h"
 
-//la fft fait beaucoup de ringing
-
 
 
 //A RENDRE PROPRE
@@ -137,36 +135,50 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 
 
 	//zoom-out by convolution with a gaussian kernel
-	int taps = 3*ZOOM;
 	double sigma = 0.5 * ZOOM; //double sigma = 0.6 * ZOOM; //results look better with 0.5
-	double *gauss = malloc(pow((2*taps+1),2)*sizeof(double));
+	int taps = ceil(6*sigma);
+	double *gauss = malloc((2*taps+1)*sizeof(double));
 	double tot = 0;
-	for(int i=-taps;i<=taps;i++){
-		for(int j=-taps;j<=taps;j++){
-			tot += (gauss[i+taps+(j+taps)*(2*taps+1)] = exp(-(pow(i,2)+pow(j,2))/(2*pow(sigma,2))));
-		}
+	for(int k=-taps;k<=taps;k++){
+			tot += (gauss[k+taps] = exp(-(pow(k,2))/(2*pow(sigma,2))));
 	}
-	for(int u=0;u<pow(2*taps+1,2);u++){gauss[u]=gauss[u]/tot;}
+	for(int k=-taps;k<=taps;k++){gauss[k+taps] /= tot;}
 
 
-	
+	float *img_aux = malloc(3*sizeof(float)*w_f*h_f*ZOOM); //size w_f x h_f*ZOOM
+	if(img_aux==NULL){
+        printf("img_aux is too large");
+        exit(1);
+    	}
+	int idx, i0, j0;
 	for(int l=0;l<3;l++){
-		for (int j = 0; j < h_f; j++){
-			for (int i = 0; i < w_f; i++){
-				float v=0;
-				for(int i2=-taps;i2<=taps;i2++){
-					for(int j2=-taps;j2<=taps;j2++){
-						int i1 = good_modulus(i*ZOOM+i2,w_f*ZOOM);
-						int j1 = good_modulus(j*ZOOM+j2,h_f*ZOOM);
-						v += gauss[i2+taps+(j2+taps)*(2*taps+1)]*img_f_zoom[(i1+j1*ZOOM*w_f)*3+l];
-						int idx = l + 3 * (w_f * j + i);
-						img_f[idx] = v;
-					}
+		//horizontal convolution
+		for (int i = 0; i < w_f; i++){
+			for (int j = 0; j < h_f*ZOOM; j++){
+				float v = 0;
+				for(int k=-taps;k<=taps;k++){
+					i0 = good_modulus(i*ZOOM+k,w_f*ZOOM);
+					v += gauss[k+taps]*img_f_zoom[(i0+j*ZOOM*w_f)*3+l];
 				}
+				int idx = l+3*(w_f*j+i);
+				img_aux[idx] = v;
+			}
+		}
+		//vertical convolution
+		for (int i = 0; i < w_f; i++){
+			for (int j = 0; j < h_f; j++){
+				float v = 0;
+				for(int k=-taps;k<=taps;k++){
+					j0 = good_modulus(j*ZOOM+k,h_f*ZOOM);
+					v += gauss[k+taps]*img_aux[(i+j0*w_f)*3+l];
+				}
+				int idx = l+3*(w_f*j+i);
+				img_f[idx] = v;
 			}
 		}
 	}
 
+	free(img_aux);
 	free(img_sym);
 	free(img_sym_zoom);
 	free(img_zoom);
