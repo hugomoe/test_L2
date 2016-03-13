@@ -135,7 +135,8 @@ int apply_homo_ground_truth(float *img,float *img_f,int w,int h,int w_f,int h_f,
 
 
 	//zoom-out by convolution with a gaussian kernel
-	double sigma = 0.5 * ZOOM; //double sigma = 0.6 * ZOOM; //results look better with 0.5
+	//double sigma = 0.5 * ZOOM; //double sigma = 0.6 * ZOOM; //results look better with 0.5
+	double sigma = 0.7 * ZOOM;
 	int taps = ceil(6*sigma);
 	double *gauss = malloc((2*taps+1)*sizeof(double));
 	double tot = 0;
