@@ -73,31 +73,6 @@ int main(int argc,char *argv[]){
 
 
 
-//decomposition
-	float *img_dec = malloc(3*WOUT*HOUT*sizeof(float));
-
-	//clock_t debutcpu,fincpu;
-	//double debutreal,finreal;
-	//debutcpu = clock();
-	//debutreal = omp_get_wtime();
-	if(pd==3){
-        apply_homography_decomp(img,img_dec,w,h,WOUT,HOUT,H);
-	}else{//suppose pd=1
-        float *img3 = malloc(3*w*h*sizeof(float));
-        for(int i=0;i<w*h;i++){
-            for(int l = 0;l<3;l++){
-                img3[3*i+l]=img[i];
-            }
-        }
-        apply_homography_decomp(img3,img_dec,w,h,WOUT,HOUT,H);
-	}
-	
-	//fincpu = clock();
-	//finreal = omp_get_wtime();
-	//printf("cputime :%fs\ntime : %fs\n",(double)(fincpu-debutcpu)/CLOCKS_PER_SEC,(double)(finreal-debutreal));
-
-
-
 //Ground truth
 	float *img_grd = malloc(3*WOUT*HOUT*sizeof(float));
 	
@@ -129,6 +104,32 @@ int main(int argc,char *argv[]){
         }
         apply_homo_ripmap(img3,img_rip,w,h,WOUT,HOUT,H);
 	}
+
+
+
+//decomposition
+	float *img_dec = malloc(3*WOUT*HOUT*sizeof(float));
+
+	//clock_t debutcpu,fincpu;
+	//double debutreal,finreal;
+	//debutcpu = clock();
+	//debutreal = omp_get_wtime();
+	if(pd==3){
+        apply_homography_decomp(img,img_dec,w,h,WOUT,HOUT,H);
+	}else{//suppose pd=1
+        float *img3 = malloc(3*w*h*sizeof(float));
+        for(int i=0;i<w*h;i++){
+            for(int l = 0;l<3;l++){
+                img3[3*i+l]=img[i];
+            }
+        }
+        apply_homography_decomp(img3,img_dec,w,h,WOUT,HOUT,H);
+	}
+	//apply_homography_decomp may rotate img and must thus be performed after the other methods
+	
+	//fincpu = clock();
+	//finreal = omp_get_wtime();
+	//printf("cputime :%fs\ntime : %fs\n",(double)(fincpu-debutcpu)/CLOCKS_PER_SEC,(double)(finreal-debutreal));
 
 
 
